@@ -1,0 +1,5 @@
+{
+  "name": "Radial Goal Map",
+  "description": "An interactive hierarchical goal map inspired by Goalscape. Visualize goals as concentric radial rings, where size represents importance and shading indicates progress. Users can focus on any goal to see its sub-tree, and interactively edit goal properties.",
+  "requestFramePermissions": []
+}
