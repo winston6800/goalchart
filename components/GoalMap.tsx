@@ -32,12 +32,13 @@ const ContinuationSlivers: React.FC<{
 
   const parentArcLength = totalAngle * node.r1;
   if (parentArcLength < MIN_ARC_PIXELS_FOR_LABEL * 2) {
+      // Fix: Pass empty object to d3.arc generator call to satisfy TypeScript types.
       const mergedSliverArc = d3.arc()
         .innerRadius(r0)
         .outerRadius(r1)
         .startAngle(node.theta0)
         .endAngle(node.theta1)
-        .cornerRadius(2)();
+        .cornerRadius(2)({});
       
       return (
         <g className="cursor-pointer" onClick={() => onSliverClick(node.nodeId)}>
@@ -63,22 +64,24 @@ const ContinuationSlivers: React.FC<{
 
         if ((endAngle - startAngle - gapRad) * midRadius < 2) return null;
 
+        // Fix: Pass empty object to d3.arc generator call to satisfy TypeScript types.
         const sliverArc = d3.arc()
           .innerRadius(r0)
           .outerRadius(r1)
           .startAngle(startAngle + gapRad / 2)
           .endAngle(endAngle - gapRad / 2)
-          .cornerRadius(2)();
+          .cornerRadius(2)({});
         
         const childProgress = progressRollup(child);
         const progressR0 = r1 - (r1 - r0) * childProgress;
         
+        // Fix: Pass empty object to d3.arc generator call to satisfy TypeScript types.
         const progressArc = childProgress > 0 ? d3.arc()
           .innerRadius(progressR0)
           .outerRadius(r1)
           .startAngle(startAngle + gapRad / 2)
           .endAngle(endAngle - gapRad / 2)
-          .cornerRadius(2)() : '';
+          .cornerRadius(2)({}) : '';
 
         return (
           <g key={`sliver-child-${child.id}`} className="cursor-pointer group" onClick={() => onSliverClick(child.id)}>
@@ -119,8 +122,10 @@ const Arc: React.FC<{
       .cornerRadius(4);
   }, [node]);
 
-  const pathD = arcGenerator() || '';
-  const progressPathD = node.displayProgress > 0 ? progressArcGenerator() || '' : '';
+  // Fix: Pass empty object to d3.arc generator call to satisfy TypeScript types.
+  const pathD = arcGenerator({}) || '';
+  // Fix: Pass empty object to d3.arc generator call to satisfy TypeScript types.
+  const progressPathD = node.displayProgress > 0 ? progressArcGenerator({}) || '' : '';
   
   const arcLength = (node.theta1 - node.theta0) * ((node.r0 + node.r1) / 2);
   const labelFits = arcLength > MIN_ARC_PIXELS_FOR_LABEL;

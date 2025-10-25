@@ -7,19 +7,19 @@ export const sampleData: Node = {
   id: 'root',
   title: 'Annual Company Goals',
   importance: 1,
-  progress: 0.3,
+  progressSelf: 0, // Parent progress is derived from children
   children: [
     {
       id: 'product',
       title: 'Product Development',
       importance: 4,
-      progress: 0.5,
+      progressSelf: 0.1, // Represents overhead work
       children: [
-        { id: 'feat1', title: 'Feature A Launch', importance: 3, progress: 0.8, children: [] },
-        { id: 'feat2', title: 'Feature B R&D', importance: 2, progress: 0.3, children: [] },
-        { id: 'ux', title: 'UX Overhaul', importance: 1, progress: 0.4, children: [
-            { id: 'ux-research', title: 'User Research', importance: 1, progress: 0.9, children: [] },
-            { id: 'ux-design', title: 'Design System Update', importance: 1, progress: 0.2, children: [] },
+        { id: 'feat1', title: 'Feature A Launch', importance: 3, progressSelf: 0.8, children: [] },
+        { id: 'feat2', title: 'Feature B R&D', importance: 2, progressSelf: 0.3, children: [] },
+        { id: 'ux', title: 'UX Overhaul', importance: 1, progressSelf: 0, children: [
+            { id: 'ux-research', title: 'User Research', importance: 1, progressSelf: 0.9, children: [] },
+            { id: 'ux-design', title: 'Design System Update', importance: 1, progressSelf: 0.2, children: [] },
         ]},
       ],
     },
@@ -27,21 +27,21 @@ export const sampleData: Node = {
       id: 'marketing',
       title: 'Marketing & Sales',
       importance: 3,
-      progress: 0.2,
+      progressSelf: 0,
       children: [
-        { id: 'campaign', title: 'Q3 Campaign', importance: 2, progress: 0.1, children: [] },
-        { id: 'seo', title: 'SEO Improvement', importance: 1, progress: 0.5, children: [] },
-        { id: 'sales-team', title: 'Expand Sales Team', importance: 2, progress: 0.0, children: [] },
+        { id: 'campaign', title: 'Q3 Campaign', importance: 2, progressSelf: 0.1, children: [] },
+        { id: 'seo', title: 'SEO Improvement', importance: 1, progressSelf: 0.5, children: [] },
+        { id: 'sales-team', title: 'Expand Sales Team', importance: 2, progressSelf: 0.0, children: [] },
       ],
     },
     {
       id: 'hr',
       title: 'Human Resources',
       importance: 2,
-      progress: 0.7,
+      progressSelf: 0.2,
       children: [
-        { id: 'hiring', title: 'Hire 10 Engineers', importance: 1, progress: 0.9, children: [] },
-        { id: 'culture', title: 'Improve Company Culture', importance: 1, progress: 0.5, children: [] },
+        { id: 'hiring', title: 'Hire 10 Engineers', importance: 1, progressSelf: 0.9, children: [] },
+        { id: 'culture', title: 'Improve Company Culture', importance: 1, progressSelf: 0.5, children: [] },
       ],
     },
   ],
@@ -96,17 +96,29 @@ export function updateNodeInTree(root: Node, updatedNode: Node): Node {
 }
 
 export function progressRollup(node: Node): number {
+  // For a leaf node, its progress is its own self-progress.
   if (node.children.length === 0) {
-    return node.progress;
+    return node.progressSelf;
   }
+
+  // For a parent node, calculate the importance-weighted average of its children's progress.
   const totalImportance = node.children.reduce((sum, child) => sum + child.importance, 0);
   if (totalImportance === 0) {
-    return 0;
+    // If children have no importance, fall back to the parent's self-progress.
+    return node.progressSelf;
   }
-  return node.children.reduce((sum, child) => {
-    return sum + (child.importance / totalImportance) * progressRollup(child);
+
+  const childrenProgress = node.children.reduce((sum, child) => {
+    // Recursively get the child's rolled-up progress.
+    const childRolledUpProgress = progressRollup(child);
+    return sum + (child.importance / totalImportance) * childRolledUpProgress;
   }, 0);
+
+  // For now, we use alpha = 0, meaning parent progress is purely derived from children.
+  // We can add an alpha blend later if needed.
+  return childrenProgress;
 }
+
 
 export function generateRenderNodes(focusedNode: Node, width: number, height: number, isFocused: boolean): RenderNode[] {
     const renderNodes: RenderNode[] = [];
@@ -133,7 +145,7 @@ export function generateRenderNodes(focusedNode: Node, width: number, height: nu
         }
 
         const hasCollapsedChildren = node.children.length > 0 && depth === allowedDepth;
-        const displayProgress = hasCollapsedChildren ? progressRollup(node) : node.progress;
+        const displayProgress = progressRollup(node);
 
         renderNodes.push({
             nodeId: node.id,

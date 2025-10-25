@@ -33,6 +33,10 @@ export default function App() {
 
   const renderNodes = useMemo(() => generateRenderNodes(focusedNode, CHART_DIMENSIONS.width, CHART_DIMENSIONS.height, isFocused), [focusedNode, isFocused]);
 
+  const selectedNodeDisplayProgress = useMemo(() => {
+    return renderNodes.find(rn => rn.nodeId === selectedNodeId)?.displayProgress;
+  }, [renderNodes, selectedNodeId]);
+
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId);
   }, []);
@@ -77,7 +81,7 @@ export default function App() {
         id: generateId(),
         title: 'New Subgoal',
         importance: 1,
-        progress: 0,
+        progressSelf: 0,
         children: [],
         color: parentNode?.color,
     };
@@ -95,7 +99,7 @@ export default function App() {
         id: generateId(),
         title: 'New Goal',
         importance: 1,
-        progress: 0,
+        progressSelf: 0,
         children: [],
         color: parent.color,
     };
@@ -191,6 +195,7 @@ export default function App() {
         <SidePanel
           node={selectedNode}
           parent={parentOfSelected}
+          displayProgress={selectedNodeDisplayProgress}
           onUpdate={handleUpdateNode}
           onAddChild={handleAddChild}
           onAddSibling={handleAddSibling}

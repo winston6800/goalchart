@@ -3,7 +3,7 @@ export interface Node {
   id: string;
   title: string;
   importance: number;
-  progress: number;
+  progressSelf: number; // Represents the node's own progress, not the roll-up
   color?: string;
   children: Node[];
 }
@@ -16,6 +16,6 @@ export interface RenderNode {
   r0: number;
   r1: number;
   data: Node;
-  displayProgress: number;
+  displayProgress: number; // This is the calculated, rolled-up progress
   hasCollapsedChildren: boolean;
 }

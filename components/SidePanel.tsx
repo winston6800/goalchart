@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Node } from '../types';
 import { PALETTE } from '../constants';
@@ -5,13 +6,14 @@ import { PALETTE } from '../constants';
 interface SidePanelProps {
   node: Node | null;
   parent: Node | null;
+  displayProgress?: number;
   onUpdate: (updatedNode: Node) => void;
   onAddChild: (parentId: string) => void;
   onAddSibling: (siblingId: string) => void;
   onDelete: (nodeId: string) => void;
 }
 
-export default function SidePanel({ node, parent, onUpdate, onAddChild, onAddSibling, onDelete }: SidePanelProps) {
+export default function SidePanel({ node, parent, displayProgress, onUpdate, onAddChild, onAddSibling, onDelete }: SidePanelProps) {
   const [formData, setFormData] = useState<Partial<Node>>({});
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export default function SidePanel({ node, parent, onUpdate, onAddChild, onAddSib
 
   const importanceLabel = isRootNode ? 'Absolute' : `${importancePercentage.toFixed(1)}% of parent`;
 
+  const hasChildren = node && node.children.length > 0;
 
   if (!node) {
     return (
@@ -85,20 +88,37 @@ export default function SidePanel({ node, parent, onUpdate, onAddChild, onAddSib
         />
       </div>
 
+      {hasChildren && displayProgress !== undefined && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-400">
+            Total Progress (from subgoals)
+          </label>
+          <div className="w-full bg-gray-600 rounded-full h-4 relative">
+            <div 
+              className="bg-sky-500 h-4 rounded-full" 
+              style={{ width: `${Math.round(displayProgress * 100)}%` }}
+            />
+             <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
+               {Math.round(displayProgress * 100)}%
+            </span>
+          </div>
+        </div>
+      )}
+
       <div>
-        <label htmlFor="progress" className="block text-sm font-medium text-gray-400">
-          Progress ({Math.round((formData.progress || 0) * 100)}%)
+        <label htmlFor="progressSelf" className="block text-sm font-medium text-gray-400">
+          {hasChildren ? 'Self Progress (work not in subgoals)' : 'Progress'} ({Math.round((formData.progressSelf || 0) * 100)}%)
         </label>
         <input
           type="range"
-          id="progress"
+          id="progressSelf"
           min="0"
           max="1"
           step="0.01"
-          value={formData.progress || 0}
-          onChange={(e) => handleChange('progress', parseFloat(e.target.value))}
-          onMouseUp={() => handleBlur('progress')}
-          onTouchEnd={() => handleBlur('progress')}
+          value={formData.progressSelf || 0}
+          onChange={(e) => handleChange('progressSelf', parseFloat(e.target.value))}
+          onMouseUp={() => handleBlur('progressSelf')}
+          onTouchEnd={() => handleBlur('progressSelf')}
           className="mt-1 block w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-emerald-500"
         />
       </div>
