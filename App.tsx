@@ -59,35 +59,7 @@ export default function App() {
 
 
   const handleUpdateNode = useCallback((updatedNode: Node) => {
-    const originalNode = findNodeById(allGoalData, updatedNode.id);
-    if (!originalNode) return;
-    
-    const parentPath = findNodePath(allGoalData, updatedNode.id);
-    const parent = parentPath.length > 1 ? parentPath[parentPath.length - 2] : null;
-
-    let updatedTree = allGoalData;
-
-    // If importance changes, adjust siblings proportionally to keep total constant
-    if (parent && originalNode.importance !== updatedNode.importance) {
-      const siblings = parent.children.filter(c => c.id !== updatedNode.id);
-      const importanceDelta = updatedNode.importance - originalNode.importance;
-      const totalOtherSiblingImportance = siblings.reduce((sum, s) => sum + s.importance, 0);
-
-      const updatedSiblings = siblings.map(sibling => {
-        if (totalOtherSiblingImportance > 0) {
-          const proportionalChange = importanceDelta * (sibling.importance / totalOtherSiblingImportance);
-          return { ...sibling, importance: Math.max(0.1, sibling.importance - proportionalChange) };
-        }
-        return sibling;
-      });
-      
-      const newParentChildren = [updatedNode, ...updatedSiblings].sort((a,b) => a.title.localeCompare(b.title));
-      const updatedParent = { ...parent, children: newParentChildren };
-      updatedTree = updateNodeInTree(allGoalData, updatedParent);
-    } else {
-       updatedTree = updateNodeInTree(allGoalData, updatedNode);
-    }
-
+    const updatedTree = updateNodeInTree(allGoalData, updatedNode);
     setAllGoalData(updatedTree);
   }, [allGoalData]);
 
@@ -139,6 +111,24 @@ export default function App() {
         setSelectedNodeId(newSelectedId);
     }
   }, [allGoalData, focusedNodeId]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        if (selectedNodeId && selectedNodeId !== 'root') {
+          // prevent browser back navigation
+          event.preventDefault();
+          handleDeleteNode(selectedNodeId);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedNodeId, handleDeleteNode]);
 
 
   return (

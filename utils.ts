@@ -1,7 +1,7 @@
-// FIX: Import d3 library to resolve reference errors.
-import * as d3 from 'd3';
+
 import { Node, RenderNode } from './types';
 import { PALETTE, CENTER_RADIUS } from './constants';
+import * as d3 from 'd3';
 
 export const sampleData: Node = {
   id: 'root',
@@ -83,66 +83,62 @@ export function findNodePath(tree: Node, id: string): Node[] {
 
 
 export function updateNodeInTree(root: Node, updatedNode: Node): Node {
-  const newRoot = { ...root };
-
   function recursiveUpdate(node: Node): Node {
     if (node.id === updatedNode.id) {
-      return { ...node, ...updatedNode };
+      return updatedNode;
     }
     return {
       ...node,
       children: node.children.map(child => recursiveUpdate(child)),
     };
   }
-  return recursiveUpdate(newRoot);
+  return recursiveUpdate(root);
 }
 
 export function generateRenderNodes(focusedNode: Node, width: number, height: number): RenderNode[] {
-    const hierarchy = d3.hierarchy(focusedNode)
-        .sum(d => d.children.length > 0 ? 0 : d.importance) // Size leaves by importance
-        .sort((a, b) => b.value! - a.value!);
-
-    const maxDepth = hierarchy.height;
+    const renderNodes: RenderNode[] = [];
     const radius = Math.min(width, height) / 2 - 10;
+
+    // We need to know the max depth to calculate ring thickness
+    const hierarchyForDepth = d3.hierarchy(focusedNode);
+    const maxDepth = hierarchyForDepth.height;
     const ringThickness = maxDepth > 0 ? (radius - CENTER_RADIUS) / maxDepth : radius - CENTER_RADIUS;
 
-
-    const partition = d3.partition()
-        .size([2 * Math.PI, radius]);
-
-    const root = partition(hierarchy);
-
-    const renderNodes: RenderNode[] = [];
-    
-    root.descendants().forEach(d => {
-        if(d.depth > maxDepth) return;
-        // Assign colors if not present
-        if (!d.data.color) {
-            d.data.color = PALETTE[d.depth % PALETTE.length];
+    function processNode(node: Node, depth: number, theta0: number, theta1: number) {
+        // Assign color if not present
+        if (!node.color) {
+            node.color = PALETTE[depth % PALETTE.length];
         }
 
         renderNodes.push({
-            nodeId: d.data.id,
-            depth: d.depth,
-            theta0: d.x0,
-            theta1: d.x1,
-            r0: d.y0 + CENTER_RADIUS,
-            r1: d.y1 + CENTER_RADIUS,
-            data: d.data,
+            nodeId: node.id,
+            depth: depth,
+            theta0: theta0,
+            theta1: theta1,
+            r0: depth * ringThickness + CENTER_RADIUS,
+            r1: (depth + 1) * ringThickness + CENTER_RADIUS,
+            data: node,
         });
-    });
-    // Adjust radius for partition layout
-    const descendants = root.descendants();
-    const maxPartitionRadius = d3.max(descendants, d => d.y1) || radius;
-    
-    descendants.forEach(d => {
-        const r0 = (d.y0 / maxPartitionRadius) * (radius - CENTER_RADIUS) + CENTER_RADIUS;
-        const r1 = (d.y1 / maxPartitionRadius) * (radius - CENTER_RADIUS) + CENTER_RADIUS;
-    })
 
+        const totalChildrenImportance = node.children.reduce((sum, child) => sum + child.importance, 0);
+        if (totalChildrenImportance > 0) {
+            let childThetaStart = theta0;
+            // Sort children to have a stable layout
+            const sortedChildren = [...node.children].sort((a,b) => a.title.localeCompare(b.title));
+            for (const child of sortedChildren) {
+                const childAngleSpan = (theta1 - theta0) * (child.importance / totalChildrenImportance);
+                const childThetaEnd = childThetaStart + childAngleSpan;
+                processNode(child, depth + 1, childThetaStart, childThetaEnd);
+                childThetaStart = childThetaEnd;
+            }
+        }
+    }
+
+    processNode(focusedNode, 0, 0, 2 * Math.PI);
 
     return renderNodes;
 }
+
 
 export const generateId = () => `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -159,16 +155,25 @@ export function addNodeToTree(root: Node, parentId: string, newNode: Node): Node
 }
 
 export function removeNodeFromTree(root: Node, nodeId: string): { newRoot: Node, newSelectedId: string | null } {
+  if (root.id === nodeId) {
+    // As per existing logic, can't delete root
+    return { newRoot: root, newSelectedId: nodeId };
+  }
+
   const path = findNodePath(root, nodeId);
-  if (path.length < 2) return { newRoot: root, newSelectedId: nodeId }; // Cannot remove root
+  const parentId = path.length > 1 ? path[path.length - 2].id : null;
 
-  const parent = path[path.length - 2];
+  // A simpler recursive remover that rebuilds the tree immutably
+  function recursiveRemove(node: Node): Node {
+      return {
+          ...node,
+          children: node.children
+              .filter(child => child.id !== nodeId)
+              .map(child => recursiveRemove(child))
+      };
+  }
   
-  const updatedParent = {
-    ...parent,
-    children: parent.children.filter(c => c.id !== nodeId),
-  };
+  const newRoot = recursiveRemove(root);
 
-  const newRoot = updateNodeInTree(root, updatedParent);
-  return { newRoot, newSelectedId: parent.id };
+  return { newRoot, newSelectedId: parentId };
 }

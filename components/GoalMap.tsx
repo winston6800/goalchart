@@ -45,24 +45,20 @@ const Arc: React.FC<{
   const arcLength = (node.theta1 - node.theta0) * ((node.r0 + node.r1) / 2);
   const labelFits = (node.data.title.length * 8) < arcLength;
 
-  const textPathId = `textpath-${node.nodeId}`;
+  // Manual text placement for better control
+  const midAngle = (node.theta0 + node.theta1) / 2;
+  const textRadius = (node.r0 + node.r1) / 2;
+  // Calculate position based on SVG standard coordinate system (0 angle is on X axis)
+  // d3 angles start from Y axis, so we subtract PI/2
+  const textX = textRadius * Math.cos(midAngle - Math.PI / 2);
+  const textY = textRadius * Math.sin(midAngle - Math.PI / 2);
   
-  const angle = (node.theta0 + node.theta1) / 2;
-  const isFlipped = angle > Math.PI / 2 && angle < 3 * Math.PI / 2;
-
-  const textArcPathD = useMemo(() => {
-    const textRadius = (node.r0 + node.r1) / 2;
-    // For flipped text, swap start and end angles to reverse path direction
-    const startAngle = isFlipped ? node.theta1 : node.theta0;
-    const endAngle = isFlipped ? node.theta0 : node.theta1;
-    return d3.arc()({
-        innerRadius: textRadius,
-        outerRadius: textRadius,
-        startAngle,
-        endAngle,
-      }) || undefined
-  }, [node.r0, node.r1, node.theta0, node.theta1, isFlipped]);
-
+  // Convert angle to degrees for rotation
+  let textRotation = (midAngle * 180 / Math.PI) - 90;
+  // Flip text that would be upside down
+  if (textRotation > 90 && textRotation < 270) {
+    textRotation -= 180;
+  }
 
   return (
     <g
@@ -79,22 +75,14 @@ const Arc: React.FC<{
         className="pointer-events-none transition-all duration-300 group-hover:fill-opacity-100"
       />
       
-      {/* Path for text to follow, always in DOM but invisible */}
-      <path
-        d={textArcPathD}
-        id={textPathId}
-        fill="none"
-      />
-
       {labelFits && node.depth > 0 && (
           <text 
-            // Adjust vertical position for better centering
-            dy={isFlipped ? "-0.35em" : "0.75em"} 
+            transform={`translate(${textX}, ${textY}) rotate(${textRotation})`}
+            textAnchor="middle"
+            dominantBaseline="middle"
             className="text-xs pointer-events-none fill-current text-gray-100 font-medium select-none"
             >
-            <textPath href={`#${textPathId}`} startOffset="50%" textAnchor="middle">
               {node.data.title}
-            </textPath>
           </text>
       )}
     </g>

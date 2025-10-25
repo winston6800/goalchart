@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Node } from '../types';
 import { PALETTE } from '../constants';
@@ -60,7 +61,7 @@ export default function SidePanel({ node, parent, onUpdate, onAddChild, onAddSib
       
       <div>
         <label htmlFor="importance" className="block text-sm font-medium text-gray-400">
-          Importance Weight ({importancePercentage.toFixed(1)}% of siblings)
+          Importance ({importancePercentage.toFixed(1)}% of parent)
         </label>
         <input
           type="range"
