@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Node } from '../types';
 import { PALETTE } from '../constants';
@@ -23,8 +22,17 @@ export default function SidePanel({ node, parent, onUpdate, onAddChild, onAddSib
     }
   }, [node]);
 
-  const totalSiblingImportance = parent ? parent.children.reduce((sum, child) => sum + child.importance, 0) : node?.importance || 1;
+  const isRootNode = !parent;
+  const totalSiblingImportance = parent ? parent.children.reduce((sum, child) => sum + child.importance, 0) : 0;
+  
+  const importanceRangeMax = isRootNode 
+    ? Math.max(10, (node?.importance || 1) * 2) 
+    : totalSiblingImportance;
+
   const importancePercentage = node && totalSiblingImportance > 0 ? (node.importance / totalSiblingImportance) * 100 : 100;
+
+  const importanceLabel = isRootNode ? 'Absolute' : `${importancePercentage.toFixed(1)}% of parent`;
+
 
   if (!node) {
     return (
@@ -61,13 +69,13 @@ export default function SidePanel({ node, parent, onUpdate, onAddChild, onAddSib
       
       <div>
         <label htmlFor="importance" className="block text-sm font-medium text-gray-400">
-          Importance ({importancePercentage.toFixed(1)}% of parent)
+          Importance ({importanceLabel})
         </label>
         <input
           type="range"
           id="importance"
           min="0.1"
-          max={totalSiblingImportance || 10}
+          max={importanceRangeMax}
           step="0.1"
           value={formData.importance || 1}
           onChange={(e) => handleChange('importance', parseFloat(e.target.value))}

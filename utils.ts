@@ -1,6 +1,6 @@
 
 import { Node, RenderNode } from './types';
-import { PALETTE, CENTER_RADIUS } from './constants';
+import { PALETTE, CENTER_RADIUS, MAX_VISIBLE_DEPTH_OVERVIEW, MAX_VISIBLE_DEPTH_FOCUSED, MIN_BAND_THICKNESS_PX } from './constants';
 import * as d3 from 'd3';
 
 export const sampleData: Node = {
@@ -95,36 +95,62 @@ export function updateNodeInTree(root: Node, updatedNode: Node): Node {
   return recursiveUpdate(root);
 }
 
-export function generateRenderNodes(focusedNode: Node, width: number, height: number): RenderNode[] {
+export function progressRollup(node: Node): number {
+  if (node.children.length === 0) {
+    return node.progress;
+  }
+  const totalImportance = node.children.reduce((sum, child) => sum + child.importance, 0);
+  if (totalImportance === 0) {
+    return 0;
+  }
+  return node.children.reduce((sum, child) => {
+    return sum + (child.importance / totalImportance) * progressRollup(child);
+  }, 0);
+}
+
+export function generateRenderNodes(focusedNode: Node, width: number, height: number, isFocused: boolean): RenderNode[] {
     const renderNodes: RenderNode[] = [];
     const radius = Math.min(width, height) / 2 - 10;
 
-    // We need to know the max depth to calculate ring thickness
-    const hierarchyForDepth = d3.hierarchy(focusedNode);
-    const maxDepth = hierarchyForDepth.height;
-    const ringThickness = maxDepth > 0 ? (radius - CENTER_RADIUS) / maxDepth : radius - CENTER_RADIUS;
+    const hierarchy = d3.hierarchy(focusedNode);
+    const maxPossibleDepth = hierarchy.height;
+    const depthLimitFromSpec = isFocused ? MAX_VISIBLE_DEPTH_FOCUSED : MAX_VISIBLE_DEPTH_OVERVIEW;
+    
+    let allowedDepth = Math.min(maxPossibleDepth, depthLimitFromSpec);
+
+    if (allowedDepth > 0) {
+      const maxRingsBySize = Math.floor((radius - CENTER_RADIUS) / MIN_BAND_THICKNESS_PX);
+      allowedDepth = Math.min(allowedDepth, maxRingsBySize);
+    }
+    
+    const ringThickness = allowedDepth > 0 ? (radius - CENTER_RADIUS) / allowedDepth : 0;
 
     function processNode(node: Node, depth: number, theta0: number, theta1: number) {
-        // Assign color if not present
+        if (depth > allowedDepth) return;
+
         if (!node.color) {
             node.color = PALETTE[depth % PALETTE.length];
         }
+
+        const hasCollapsedChildren = node.children.length > 0 && depth === allowedDepth;
+        const displayProgress = hasCollapsedChildren ? progressRollup(node) : node.progress;
 
         renderNodes.push({
             nodeId: node.id,
             depth: depth,
             theta0: theta0,
             theta1: theta1,
-            r0: depth * ringThickness + CENTER_RADIUS,
-            r1: (depth + 1) * ringThickness + CENTER_RADIUS,
+            r0: depth === 0 ? 0 : CENTER_RADIUS + (depth - 1) * ringThickness,
+            r1: depth === 0 ? CENTER_RADIUS : CENTER_RADIUS + depth * ringThickness,
             data: node,
+            displayProgress,
+            hasCollapsedChildren,
         });
 
         const totalChildrenImportance = node.children.reduce((sum, child) => sum + child.importance, 0);
         if (totalChildrenImportance > 0) {
             let childThetaStart = theta0;
-            // Sort children to have a stable layout
-            const sortedChildren = [...node.children].sort((a,b) => a.title.localeCompare(b.title));
+            const sortedChildren = [...node.children].sort((a, b) => a.title.localeCompare(b.title));
             for (const child of sortedChildren) {
                 const childAngleSpan = (theta1 - theta0) * (child.importance / totalChildrenImportance);
                 const childThetaEnd = childThetaStart + childAngleSpan;
@@ -156,14 +182,12 @@ export function addNodeToTree(root: Node, parentId: string, newNode: Node): Node
 
 export function removeNodeFromTree(root: Node, nodeId: string): { newRoot: Node, newSelectedId: string | null } {
   if (root.id === nodeId) {
-    // As per existing logic, can't delete root
     return { newRoot: root, newSelectedId: nodeId };
   }
 
   const path = findNodePath(root, nodeId);
   const parentId = path.length > 1 ? path[path.length - 2].id : null;
 
-  // A simpler recursive remover that rebuilds the tree immutably
   function recursiveRemove(node: Node): Node {
       return {
           ...node,
@@ -176,4 +200,48 @@ export function removeNodeFromTree(root: Node, nodeId: string): { newRoot: Node,
   const newRoot = recursiveRemove(root);
 
   return { newRoot, newSelectedId: parentId };
+}
+
+export function promoteChildrenInTree(root: Node, nodeId: string): { newRoot: Node, newSelectedId: string | null } {
+  const path = findNodePath(root, nodeId);
+  if (path.length < 2) { // Cannot promote children of root or if node not found
+    return { newRoot: root, newSelectedId: nodeId };
+  }
+  
+  const nodeToDelete = path[path.length - 1];
+  const parent = path[path.length - 2];
+
+  if (nodeToDelete.children.length === 0) {
+      // Nothing to promote, just delete the node as a leaf
+      return removeNodeFromTree(root, nodeId);
+  }
+
+  const totalChildrenImportance = nodeToDelete.children.reduce((sum, child) => sum + child.importance, 0);
+
+  const promotedChildren = nodeToDelete.children.map(child => {
+    const newImportance = totalChildrenImportance > 0 
+      ? nodeToDelete.importance * (child.importance / totalChildrenImportance)
+      : nodeToDelete.importance / nodeToDelete.children.length; // fallback if all children have 0 importance
+    return {
+      ...child,
+      importance: newImportance,
+    };
+  });
+
+  const nodeIndex = parent.children.findIndex(child => child.id === nodeId);
+  
+  const newParentChildren = [
+    ...parent.children.slice(0, nodeIndex),
+    ...promotedChildren,
+    ...parent.children.slice(nodeIndex + 1),
+  ];
+
+  const updatedParent = {
+    ...parent,
+    children: newParentChildren,
+  };
+
+  const newRoot = updateNodeInTree(root, updatedParent);
+
+  return { newRoot, newSelectedId: parent.id };
 }

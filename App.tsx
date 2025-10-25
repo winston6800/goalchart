@@ -4,26 +4,34 @@ import { Node } from './types';
 import GoalMap from './components/GoalMap';
 import SidePanel from './components/SidePanel';
 import Breadcrumbs from './components/Breadcrumbs';
-import { sampleData, findNodeById, updateNodeInTree, generateRenderNodes, findNodePath, generateId, addNodeToTree, removeNodeFromTree } from './utils';
+import { sampleData, findNodeById, updateNodeInTree, generateRenderNodes, findNodePath, generateId, addNodeToTree, removeNodeFromTree, promoteChildrenInTree } from './utils';
 import { CHART_DIMENSIONS, TRANSITION_DURATION } from './constants';
+import DeleteConfirmationDialog from './components/DeleteConfirmationDialog';
 
 export default function App() {
   const [allGoalData, setAllGoalData] = useState<Node>(sampleData);
   const [focusedNodeId, setFocusedNodeId] = useState<string>('root');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>('root');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [deletionCandidateId, setDeletionCandidateId] = useState<string | null>(null);
 
   const focusedNode = useMemo(() => findNodeById(allGoalData, focusedNodeId) || allGoalData, [allGoalData, focusedNodeId]);
   const selectedNode = useMemo(() => selectedNodeId ? findNodeById(allGoalData, selectedNodeId) : null, [allGoalData, selectedNodeId]);
   const breadcrumbsPath = useMemo(() => findNodePath(allGoalData, focusedNodeId), [allGoalData, focusedNodeId]);
+  const isFocused = useMemo(() => focusedNodeId !== 'root', [focusedNodeId]);
   
   const parentOfSelected = useMemo(() => {
     if (!selectedNodeId) return null;
     const path = findNodePath(allGoalData, selectedNodeId);
     return path.length > 1 ? path[path.length - 2] : null;
   }, [allGoalData, selectedNodeId]);
+  
+  const deletionCandidateNode = useMemo(
+    () => (deletionCandidateId ? findNodeById(allGoalData, deletionCandidateId) : null),
+    [allGoalData, deletionCandidateId]
+  );
 
-  const renderNodes = useMemo(() => generateRenderNodes(focusedNode, CHART_DIMENSIONS.width, CHART_DIMENSIONS.height), [focusedNode]);
+  const renderNodes = useMemo(() => generateRenderNodes(focusedNode, CHART_DIMENSIONS.width, CHART_DIMENSIONS.height, isFocused), [focusedNode, isFocused]);
 
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId);
@@ -55,7 +63,7 @@ export default function App() {
        const parentId = parentPath[parentPath.length - 2].id;
        handleBreadcrumbClick(parentId);
     }
-  }, [allGoalData.id, focusedNodeId, handleBreadcrumbClick]);
+  }, [allGoalData.id, focusedNode.id, focusedNodeId, handleBreadcrumbClick]);
 
 
   const handleUpdateNode = useCallback((updatedNode: Node) => {
@@ -101,16 +109,46 @@ export default function App() {
         alert("Cannot delete the root goal.");
         return;
     }
-    if (window.confirm('Are you sure you want to delete this goal and all its subgoals?')) {
+    const nodeToDelete = findNodeById(allGoalData, nodeId);
+    if (!nodeToDelete) return;
+
+    if (nodeToDelete.children.length > 0) {
+        setDeletionCandidateId(nodeId);
+    } else {
         const { newRoot, newSelectedId } = removeNodeFromTree(allGoalData, nodeId);
         setAllGoalData(newRoot);
-        // If focused node is deleted, focus on parent
         if (focusedNodeId === nodeId) {
             setFocusedNodeId(newSelectedId || 'root');
         }
-        setSelectedNodeId(newSelectedId);
+        setSelectedNodeId(newSelectedId || 'root');
     }
   }, [allGoalData, focusedNodeId]);
+  
+  const handleConfirmDeletion = useCallback((mode: 'delete-subtree' | 'promote-children') => {
+    if (!deletionCandidateId) return;
+
+    let result: { newRoot: Node, newSelectedId: string | null };
+
+    if (mode === 'delete-subtree') {
+        result = removeNodeFromTree(allGoalData, deletionCandidateId);
+    } else {
+        result = promoteChildrenInTree(allGoalData, deletionCandidateId);
+    }
+    
+    const { newRoot, newSelectedId } = result;
+
+    setAllGoalData(newRoot);
+    if (focusedNodeId === deletionCandidateId) {
+        setFocusedNodeId(newSelectedId || 'root');
+    }
+    setSelectedNodeId(newSelectedId || 'root');
+    setDeletionCandidateId(null);
+  }, [allGoalData, deletionCandidateId, focusedNodeId]);
+  
+  const handleCancelDeletion = useCallback(() => {
+    setDeletionCandidateId(null);
+  }, []);
+
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -144,7 +182,8 @@ export default function App() {
             selectedNodeId={selectedNodeId}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
-            onCenterClick={handleCenterClick}
+            onCenterSelect={handleNodeClick}
+            onCenterDoubleClick={handleCenterClick}
           />
         </div>
       </main>
@@ -159,6 +198,13 @@ export default function App() {
           key={selectedNode?.id || 'empty'}
         />
       </aside>
+      {deletionCandidateNode && (
+        <DeleteConfirmationDialog 
+          node={deletionCandidateNode}
+          onConfirm={handleConfirmDeletion}
+          onCancel={handleCancelDeletion}
+        />
+      )}
     </div>
   );
 }

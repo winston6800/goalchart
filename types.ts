@@ -16,4 +16,6 @@ export interface RenderNode {
   r0: number;
   r1: number;
   data: Node;
+  displayProgress: number;
+  hasCollapsedChildren: boolean;
 }

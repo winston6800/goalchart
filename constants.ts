@@ -1,4 +1,3 @@
-
 export const PALETTE = [
   '#5B21B6', // Violet
   '#1D4ED8', // Blue
@@ -17,5 +16,15 @@ export const CHART_DIMENSIONS = {
   height: 800,
 };
 
-export const CENTER_RADIUS = 30;
+export const CENTER_RADIUS = 60;
 export const TRANSITION_DURATION = 350; // ms
+
+// --- New constants for multi-layer logic ---
+export const MAX_VISIBLE_DEPTH_OVERVIEW = 3;
+export const MAX_VISIBLE_DEPTH_FOCUSED = 6;
+export const MIN_BAND_THICKNESS_PX = 22;
+export const MIN_ARC_PIXELS_FOR_LABEL = 16;
+
+// --- New constants for continuation slivers ---
+export const SLIVER_THICKNESS_PX = 5;
+export const SLIVER_GAP_PX = 1.5;
