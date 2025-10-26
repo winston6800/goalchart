@@ -13,7 +13,8 @@ interface SidePanelProps {
   onDelete: (nodeId: string) => void;
 }
 
-export default function SidePanel({ node, parent, displayProgress, onUpdate, onAddChild, onAddSibling, onDelete }: SidePanelProps) {
+// FIX: Changed component definition to use React.FC to correctly type it as a React component. This allows the use of special React props like 'key' without causing a TypeScript error.
+const SidePanel: React.FC<SidePanelProps> = ({ node, parent, displayProgress, onUpdate, onAddChild, onAddSibling, onDelete }) => {
   const [formData, setFormData] = useState<Partial<Node>>({});
 
   useEffect(() => {
@@ -167,3 +168,5 @@ export default function SidePanel({ node, parent, displayProgress, onUpdate, onA
     </div>
   );
 }
+
+export default SidePanel;

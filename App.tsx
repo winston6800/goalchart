@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Node } from './types';
 import GoalMap from './components/GoalMap';
@@ -8,12 +7,46 @@ import { sampleData, findNodeById, updateNodeInTree, generateRenderNodes, findNo
 import { CHART_DIMENSIONS, TRANSITION_DURATION } from './constants';
 import DeleteConfirmationDialog from './components/DeleteConfirmationDialog';
 
+const MAX_HISTORY_SIZE = 50;
+
 export default function App() {
-  const [allGoalData, setAllGoalData] = useState<Node>(sampleData);
+  const [history, setHistory] = useState<Node[]>([sampleData]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const allGoalData = history[historyIndex];
+
   const [focusedNodeId, setFocusedNodeId] = useState<string>('root');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>('root');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [deletionCandidateId, setDeletionCandidateId] = useState<string | null>(null);
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  const updateStateAndHistory = useCallback((newTree: Node) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newTree);
+
+    while (newHistory.length > MAX_HISTORY_SIZE) {
+        newHistory.shift();
+    }
+    
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [history, historyIndex]);
+
+  useEffect(() => {
+    const isFocusedIdValid = findNodeById(allGoalData, focusedNodeId);
+    if (!isFocusedIdValid) {
+        setFocusedNodeId('root');
+        setSelectedNodeId('root');
+        return;
+    }
+
+    const isSelectedIdValid = findNodeById(allGoalData, selectedNodeId);
+    if (!isSelectedIdValid) {
+        setSelectedNodeId(focusedNodeId);
+    }
+  }, [allGoalData, selectedNodeId, focusedNodeId]);
 
   const focusedNode = useMemo(() => findNodeById(allGoalData, focusedNodeId) || allGoalData, [allGoalData, focusedNodeId]);
   const selectedNode = useMemo(() => selectedNodeId ? findNodeById(allGoalData, selectedNodeId) : null, [allGoalData, selectedNodeId]);
@@ -72,8 +105,8 @@ export default function App() {
 
   const handleUpdateNode = useCallback((updatedNode: Node) => {
     const updatedTree = updateNodeInTree(allGoalData, updatedNode);
-    setAllGoalData(updatedTree);
-  }, [allGoalData]);
+    updateStateAndHistory(updatedTree);
+  }, [allGoalData, updateStateAndHistory]);
 
   const handleAddChild = useCallback((parentId: string) => {
     const parentNode = findNodeById(allGoalData, parentId);
@@ -86,9 +119,9 @@ export default function App() {
         color: parentNode?.color,
     };
     const updatedTree = addNodeToTree(allGoalData, parentId, newNode);
-    setAllGoalData(updatedTree);
+    updateStateAndHistory(updatedTree);
     setSelectedNodeId(newNode.id);
-  }, [allGoalData]);
+  }, [allGoalData, updateStateAndHistory]);
 
   const handleAddSibling = useCallback((siblingId: string) => {
     const path = findNodePath(allGoalData, siblingId);
@@ -104,9 +137,9 @@ export default function App() {
         color: parent.color,
     };
     const updatedTree = addNodeToTree(allGoalData, parent.id, newNode);
-    setAllGoalData(updatedTree);
+    updateStateAndHistory(updatedTree);
     setSelectedNodeId(newNode.id);
-  }, [allGoalData]);
+  }, [allGoalData, updateStateAndHistory]);
 
   const handleDeleteNode = useCallback((nodeId: string) => {
     if (nodeId === 'root') {
@@ -120,13 +153,13 @@ export default function App() {
         setDeletionCandidateId(nodeId);
     } else {
         const { newRoot, newSelectedId } = removeNodeFromTree(allGoalData, nodeId);
-        setAllGoalData(newRoot);
+        updateStateAndHistory(newRoot);
         if (focusedNodeId === nodeId) {
             setFocusedNodeId(newSelectedId || 'root');
         }
         setSelectedNodeId(newSelectedId || 'root');
     }
-  }, [allGoalData, focusedNodeId]);
+  }, [allGoalData, focusedNodeId, updateStateAndHistory]);
   
   const handleConfirmDeletion = useCallback((mode: 'delete-subtree' | 'promote-children') => {
     if (!deletionCandidateId) return;
@@ -141,36 +174,29 @@ export default function App() {
     
     const { newRoot, newSelectedId } = result;
 
-    setAllGoalData(newRoot);
+    updateStateAndHistory(newRoot);
     if (focusedNodeId === deletionCandidateId) {
         setFocusedNodeId(newSelectedId || 'root');
     }
     setSelectedNodeId(newSelectedId || 'root');
     setDeletionCandidateId(null);
-  }, [allGoalData, deletionCandidateId, focusedNodeId]);
+  }, [allGoalData, deletionCandidateId, focusedNodeId, updateStateAndHistory]);
   
   const handleCancelDeletion = useCallback(() => {
     setDeletionCandidateId(null);
   }, []);
 
+  const handleUndo = useCallback(() => {
+    if (canUndo) {
+        setHistoryIndex(prevIndex => prevIndex - 1);
+    }
+  }, [canUndo]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Backspace' || event.key === 'Delete') {
-        if (selectedNodeId && selectedNodeId !== 'root') {
-          // prevent browser back navigation
-          event.preventDefault();
-          handleDeleteNode(selectedNodeId);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [selectedNodeId, handleDeleteNode]);
+  const handleRedo = useCallback(() => {
+    if (canRedo) {
+        setHistoryIndex(prevIndex => prevIndex + 1);
+    }
+  }, [canRedo]);
 
 
   return (
@@ -179,6 +205,30 @@ export default function App() {
         <div className="absolute top-4 left-4">
           <h1 className="text-2xl font-bold text-violet-400">Radial Goal Map</h1>
           <Breadcrumbs path={breadcrumbsPath} onNodeClick={handleBreadcrumbClick} />
+        </div>
+        <div className="absolute top-4 right-4 flex items-center space-x-2">
+            <button 
+                onClick={handleUndo} 
+                disabled={!canUndo}
+                className="p-2 bg-gray-700 text-gray-300 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                aria-label="Undo"
+                title="Undo"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                </svg>
+            </button>
+            <button 
+                onClick={handleRedo}
+                disabled={!canRedo}
+                className="p-2 bg-gray-700 text-gray-300 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                aria-label="Redo"
+                title="Redo"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
+                </svg>
+            </button>
         </div>
         <div className={`transition-opacity duration-${TRANSITION_DURATION} ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
           <GoalMap
