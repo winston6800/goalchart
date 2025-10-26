@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Node } from '../types';
 import { PALETTE } from '../constants';
+import * as d3 from 'd3';
 
 interface SidePanelProps {
   node: Node | null;
@@ -37,6 +38,15 @@ const SidePanel: React.FC<SidePanelProps> = ({ node, parent, displayProgress, on
   const importanceLabel = isRootNode ? 'Absolute' : `${importancePercentage.toFixed(1)}% of parent`;
 
   const hasChildren = node && node.children.length > 0;
+  
+  const currentColor = formData.color || PALETTE[0];
+  const currentHsl = useMemo(() => {
+    try {
+      return d3.hsl(currentColor);
+    } catch {
+      return d3.hsl(PALETTE[0]);
+    }
+  }, [currentColor]);
 
   if (!node) {
     return (
@@ -57,6 +67,31 @@ const SidePanel: React.FC<SidePanelProps> = ({ node, parent, displayProgress, on
     }
   }
 
+  const handlePaletteSelect = (color: string) => {
+    handleChange('color', color);
+    onUpdate({ ...formData, color } as Node);
+  };
+
+  const handleLightnessChange = (l: number) => {
+    const newColor = d3.hsl(currentColor);
+    newColor.l = l;
+    if (newColor.s === 0 && PALETTE.every(p => p !== newColor.toString())) {
+        const originalHsl = d3.hsl(node?.color || PALETTE[0]);
+        newColor.s = originalHsl.s > 0.1 ? originalHsl.s : 0.5;
+    }
+    handleChange('color', newColor.toString());
+  };
+  
+  const sliderBackground = useMemo(() => {
+    const c = d3.hsl(currentColor);
+    c.s = Math.max(c.s, 0.5);
+    const start = d3.hsl(c.h, c.s, 0.2).toString();
+    const mid = d3.hsl(c.h, c.s, 0.5).toString();
+    const end = d3.hsl(c.h, c.s, 0.8).toString();
+    return `linear-gradient(to right, ${start}, ${mid}, ${end})`;
+  }, [currentColor]);
+
+
   return (
     <div className="space-y-6 text-gray-200">
       <div>
@@ -68,6 +103,19 @@ const SidePanel: React.FC<SidePanelProps> = ({ node, parent, displayProgress, on
           onChange={(e) => handleChange('title', e.target.value)}
           onBlur={() => handleBlur('title')}
           className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-violet-500 focus:border-violet-500 sm:text-sm text-white"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="context" className="block text-sm font-medium text-gray-400">Context / Notes</label>
+        <textarea
+          id="context"
+          rows={4}
+          value={formData.context || ''}
+          onChange={(e) => handleChange('context', e.target.value)}
+          onBlur={() => handleBlur('context')}
+          className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-violet-500 focus:border-violet-500 sm:text-sm text-white resize-y"
+          placeholder="Add extra details, links, or notes here..."
         />
       </div>
       
@@ -124,21 +172,38 @@ const SidePanel: React.FC<SidePanelProps> = ({ node, parent, displayProgress, on
         />
       </div>
 
-      <div>
+      <div className="space-y-4">
         <label htmlFor="color" className="block text-sm font-medium text-gray-400">Color</label>
-        <div className="mt-2 grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-5 gap-2">
             {PALETTE.map(color => (
                 <button
                     key={color}
                     type="button"
-                    className={`w-12 h-12 rounded-full border-4 ${formData.color === color ? 'border-white' : 'border-transparent'}`}
+                    className={`w-12 h-12 rounded-full border-4 transition-transform transform hover:scale-110 ${
+                        d3.hsl(currentColor).h === d3.hsl(color).h && d3.hsl(currentColor).s === d3.hsl(color).s
+                        ? 'border-white' 
+                        : 'border-transparent'
+                    }`}
                     style={{ backgroundColor: color }}
-                    onClick={() => {
-                        handleChange('color', color);
-                        onUpdate({ ...formData, color } as Node);
-                    }}
+                    onClick={() => handlePaletteSelect(color)}
                 />
             ))}
+        </div>
+        <div>
+            <label htmlFor="tint" className="block text-sm font-medium text-gray-400">Tint</label>
+            <input
+                type="range"
+                id="tint"
+                min="0.1"
+                max="0.9"
+                step="0.01"
+                value={currentHsl.l}
+                onChange={(e) => handleLightnessChange(parseFloat(e.target.value))}
+                onMouseUp={() => handleBlur('color')}
+                onTouchEnd={() => handleBlur('color')}
+                style={{ background: sliderBackground }}
+                className="mt-1 block w-full h-3 appearance-none cursor-pointer rounded-lg overflow-hidden [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
+            />
         </div>
       </div>
 

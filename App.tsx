@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Node } from './types';
 import GoalMap from './components/GoalMap';
@@ -117,6 +118,7 @@ export default function App() {
         progressSelf: 0,
         children: [],
         color: parentNode?.color,
+        context: '',
     };
     const updatedTree = addNodeToTree(allGoalData, parentId, newNode);
     updateStateAndHistory(updatedTree);
@@ -135,6 +137,7 @@ export default function App() {
         progressSelf: 0,
         children: [],
         color: parent.color,
+        context: '',
     };
     const updatedTree = addNodeToTree(allGoalData, parent.id, newNode);
     updateStateAndHistory(updatedTree);
@@ -194,7 +197,7 @@ export default function App() {
 
   const handleRedo = useCallback(() => {
     if (canRedo) {
-        setHistoryIndex(prevIndex => prevIndex + 1);
+        setHistoryIndex(prevIndex => prevIndex - 1);
     }
   }, [canRedo]);
 

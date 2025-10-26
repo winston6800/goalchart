@@ -6,6 +6,7 @@ export interface Node {
   progressSelf: number; // Represents the node's own progress, not the roll-up
   color?: string;
   children: Node[];
+  context?: string;
 }
 
 export interface RenderNode {

@@ -129,6 +129,18 @@ const Arc: React.FC<{
   
   const arcLength = (node.theta1 - node.theta0) * ((node.r0 + node.r1) / 2);
   const labelFits = arcLength > MIN_ARC_PIXELS_FOR_LABEL;
+  
+  let displayText = node.data.title;
+  if (labelFits) {
+    const avgCharWidth = 7.5; // Approx width for 'text-xs' font size
+    const maxChars = Math.floor(arcLength / avgCharWidth);
+    if (node.data.title.length > maxChars && maxChars > 3) {
+      displayText = node.data.title.substring(0, maxChars - 1).trim() + '…';
+    } else if (node.data.title.length > maxChars) {
+      displayText = ''; 
+    }
+  }
+
 
   const midAngle = (node.theta0 + node.theta1) / 2;
   const textRadius = (node.r0 + node.r1) / 2;
@@ -155,14 +167,14 @@ const Arc: React.FC<{
         className="pointer-events-none transition-all duration-300 group-hover:fill-opacity-100"
       />
       
-      {labelFits && (
+      {labelFits && displayText && (
           <text 
             transform={`translate(${textX}, ${textY}) rotate(${textRotation})`}
             textAnchor="middle"
             dominantBaseline="middle"
             className="text-xs pointer-events-none fill-current text-gray-100 font-medium select-none"
             >
-              {node.data.title}
+              {displayText}
           </text>
       )}
     </g>

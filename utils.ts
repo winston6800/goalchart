@@ -8,19 +8,21 @@ export const sampleData: Node = {
   title: 'Annual Company Goals',
   importance: 1,
   progressSelf: 0, // Parent progress is derived from children
+  context: 'Our main focus for the fiscal year. All departments should align their priorities with these goals.',
   children: [
     {
       id: 'product',
       title: 'Product Development',
       importance: 4,
       progressSelf: 0.1, // Represents overhead work
+      context: 'Innovate and deliver high-quality features to maintain market leadership.',
       children: [
-        { id: 'feat1', title: 'Feature A Launch', importance: 3, progressSelf: 0.8, children: [] },
-        { id: 'feat2', title: 'Feature B R&D', importance: 2, progressSelf: 0.3, children: [] },
+        { id: 'feat1', title: 'Feature A Launch', importance: 3, progressSelf: 0.8, children: [], context: 'Target launch date: Q3. Marketing campaign needs to be ready.' },
+        { id: 'feat2', title: 'Feature B R&D', importance: 2, progressSelf: 0.3, children: [], context: 'Research phase for a potential new product line. Focus on feasibility.' },
         { id: 'ux', title: 'UX Overhaul', importance: 1, progressSelf: 0, children: [
-            { id: 'ux-research', title: 'User Research', importance: 1, progressSelf: 0.9, children: [] },
-            { id: 'ux-design', title: 'Design System Update', importance: 1, progressSelf: 0.2, children: [] },
-        ]},
+            { id: 'ux-research', title: 'User Research', importance: 1, progressSelf: 0.9, children: [], context: 'Conduct interviews with 20 key customers.' },
+            { id: 'ux-design', title: 'Design System Update', importance: 1, progressSelf: 0.2, children: [], context: 'Update components to be more accessible (WCAG 2.1 AA).' },
+        ], context: 'Improve user satisfaction scores by 15%.'},
       ],
     },
     {
@@ -28,10 +30,11 @@ export const sampleData: Node = {
       title: 'Marketing & Sales',
       importance: 3,
       progressSelf: 0,
+      context: 'Increase brand awareness and drive revenue growth.',
       children: [
-        { id: 'campaign', title: 'Q3 Campaign', importance: 2, progressSelf: 0.1, children: [] },
-        { id: 'seo', title: 'SEO Improvement', importance: 1, progressSelf: 0.5, children: [] },
-        { id: 'sales-team', title: 'Expand Sales Team', importance: 2, progressSelf: 0.0, children: [] },
+        { id: 'campaign', title: 'Q3 Campaign', importance: 2, progressSelf: 0.1, children: [], context: 'Focus on social media and influencer outreach.' },
+        { id: 'seo', title: 'SEO Improvement', importance: 1, progressSelf: 0.5, children: [], context: 'Target top 3 ranking for 10 new keywords.' },
+        { id: 'sales-team', title: 'Expand Sales Team', importance: 2, progressSelf: 0.0, children: [], context: 'Hire 5 new account executives in the EMEA region.' },
       ],
     },
     {
@@ -39,9 +42,10 @@ export const sampleData: Node = {
       title: 'Human Resources',
       importance: 2,
       progressSelf: 0.2,
+      context: 'Attract and retain top talent.',
       children: [
-        { id: 'hiring', title: 'Hire 10 Engineers', importance: 1, progressSelf: 0.9, children: [] },
-        { id: 'culture', title: 'Improve Company Culture', importance: 1, progressSelf: 0.5, children: [] },
+        { id: 'hiring', title: 'Hire 10 Engineers', importance: 1, progressSelf: 0.9, children: [], context: 'Focus on senior-level backend developers.' },
+        { id: 'culture', title: 'Improve Company Culture', importance: 1, progressSelf: 0.5, children: [], context: 'Launch mentorship program and conduct quarterly employee satisfaction surveys.' },
       ],
     },
   ],
