@@ -9,9 +9,26 @@ import { CHART_DIMENSIONS, TRANSITION_DURATION } from './constants';
 import DeleteConfirmationDialog from './components/DeleteConfirmationDialog';
 
 const MAX_HISTORY_SIZE = 50;
+const LOCAL_STORAGE_KEY = 'radialGoalMapData';
+
+const getInitialState = (): Node => {
+  try {
+    const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (savedData) {
+      const parsedData = JSON.parse(savedData);
+      // Basic validation to ensure it's a valid goal tree
+      if (parsedData.id && parsedData.title && Array.isArray(parsedData.children)) {
+        return parsedData;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load or parse data from localStorage", error);
+  }
+  return sampleData;
+};
 
 export default function App() {
-  const [history, setHistory] = useState<Node[]>([sampleData]);
+  const [history, setHistory] = useState<Node[]>([getInitialState()]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const allGoalData = history[historyIndex];
 
@@ -33,6 +50,13 @@ export default function App() {
     
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
+
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTree));
+    } catch (error) {
+      console.error("Failed to save data to localStorage:", error);
+      alert("Could not save your changes. Your browser's storage might be full.");
+    }
   }, [history, historyIndex]);
 
   useEffect(() => {
@@ -43,7 +67,7 @@ export default function App() {
         return;
     }
 
-    const isSelectedIdValid = findNodeById(allGoalData, selectedNodeId);
+    const isSelectedIdValid = selectedNodeId ? findNodeById(allGoalData, selectedNodeId) : false;
     if (!isSelectedIdValid) {
         setSelectedNodeId(focusedNodeId);
     }
@@ -197,9 +221,22 @@ export default function App() {
 
   const handleRedo = useCallback(() => {
     if (canRedo) {
-        setHistoryIndex(prevIndex => prevIndex - 1);
+        setHistoryIndex(prevIndex => prevIndex + 1);
     }
   }, [canRedo]);
+
+  const handleResetData = useCallback(() => {
+    if (window.confirm("Are you sure you want to reset all goals to the default sample data? This action cannot be undone.")) {
+      try {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        // Reloading is the simplest way to reset the entire app's state
+        window.location.reload();
+      } catch (error) {
+        console.error("Failed to clear localStorage:", error);
+        alert("Could not reset data. Please try clearing your browser's site data manually.");
+      }
+    }
+  }, []);
 
 
   return (
@@ -231,6 +268,17 @@ export default function App() {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
                 </svg>
+            </button>
+             <div className="border-l h-6 border-gray-600"></div>
+            <button 
+                onClick={handleResetData}
+                className="p-2 bg-gray-700 text-gray-300 rounded-md hover:bg-red-600 hover:text-white transition-colors"
+                aria-label="Reset Data"
+                title="Reset to sample data"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 11.664 0l3.181-3.183m-11.664 0-3.182-3.182m11.664 0 3.182 3.182" />
+              </svg>
             </button>
         </div>
         <div className={`transition-opacity duration-${TRANSITION_DURATION} ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
